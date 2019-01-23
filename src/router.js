@@ -18,12 +18,6 @@ export default new Router({
       name: "curriculum",
       component: () =>
         import(/* webpackChunkName: "about" */ "./views/Curriculum.vue")
-    },
-    {
-      path: "/graph",
-      name: "graph",
-      component: () =>
-        import(/* webpackChunkName: "about" */ "./views/Graph.vue")
     }
   ]
 });

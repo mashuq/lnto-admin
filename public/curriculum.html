@@ -1,0 +1,179 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Curriculum</title>
+
+  <script type="text/javascript" src="/js/vis-network.min.js"></script>
+  <script type="text/javascript" src="/js/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript" src="/js/socket.io.js"></script>
+  <script type="text/javascript" src="/js/lodash.min.js"></script>
+
+  <link href="/css/vis-network.min.css" rel="stylesheet" type="text/css" />
+  <link href="/css/curriculum.css" rel="stylesheet" type="text/css" />
+</head>
+
+<div id="curriculum"></div>
+<div>
+    Add Child to {{ selectedNode.name }}
+    <label>
+      Name:
+      <input type="text" name="name" id="name"/>
+    </label>
+    <label>
+      Type:
+      <select name="type" id="type">
+        <option value="Realm">Realm</option>
+        <option value="Institute">Institute</option>
+        <option value="Medium">Medium</option>
+        <option value="Program">Program</option>
+        <option value="Course">Course</option>
+        <option value="Class">Class</option>
+        <option value="Subject">Subject</option>     
+        <option value="Book">Book</option>       
+      </select>
+    </label>
+    <button id="addNode" type="button">Submit</button>
+</div>
+
+<script type="text/javascript">
+  let socket = io("http://localhost:3000/curriculumGraph");
+  let nodeIds, shadowState, nodesArray, nodes, edgesArray, edges, network, selectedNodeUUID;
+
+  $( "#addNode" ).click(function() {
+    socket.emit('invoke', { service: "graph", action: "addNewNode", data: {name:$("#name").val(), parentUUID:selectedNodeUUID, type:$("#type").val()} });
+  });
+
+  $(function () {
+    createCurriculumGraph();
+    socket.emit('invoke', { service: "graph", action: "populateFullGraph", data: {} });    
+  });
+
+
+  let actions = {};
+
+  actions.populateFullGraph = function (data) {
+    preProcessNodeData(data);
+    nodesArray = data.nodes;
+    edgesArray = data.edges;
+    nodes.clear();
+    edges.clear();
+    nodes.add(nodesArray);
+    edges.add(edgesArray);
+  }
+
+  actions.addNewNode = function (data) {
+    preProcessNodeData(data);
+    nodes.add(data.nodes[0]);
+    edges.add(data.edges[0]);
+  }
+
+  socket.on('invoke', function (response) {
+    if (_.has(actions, response.action)) {
+      actions[response.action](response.result);
+    }
+  });
+
+  function preProcessNodeData(data) {
+    if (data == null || data.nodes == null) {
+      return;
+    }
+    for (let node of data.nodes) {
+      let label = node.name;
+      node.name = node.label;
+      node.label = label;
+      node.id = node.uuid;
+    }
+  }
+
+  function createCurriculumGraph() {
+    nodesArray = [];
+    nodes = new vis.DataSet(nodesArray);
+
+    edgesArray = [];
+    edges = new vis.DataSet(edgesArray);
+
+    let container = document.getElementById('curriculum');
+    let data = {
+      nodes: nodes,
+      edges: edges
+    };
+    let options = {};
+    network = new vis.Network(container, data, options);
+    network.setOptions({
+      nodes: { shadow: true },
+      edges: {
+        shadow: true,
+        arrows: {
+          to: {
+            enabled: true, scaleFactor: 1, type: 'arrow'
+          }
+        }
+      }
+    });
+    network.on("click", function (params) {
+      selectedNodeUUID = this.getNodeAt(params.pointer.DOM);
+    });
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+  function addNode() {
+    let newId = (Math.random() * 1e7).toString(32);
+    nodes.add({ id: newId, label: "I'm new!" });
+    nodeIds.push(newId);
+  }
+
+  function changeNode1() {
+    let newColor = '#' + Math.floor((Math.random() * 255 * 255 * 255)).toString(16);
+    nodes.update([{ id: 1, color: { background: newColor } }]);
+  }
+
+  function removeRandomNode() {
+    let randomNodeId = nodeIds[Math.floor(Math.random() * nodeIds.length)];
+    nodes.remove({ id: randomNodeId });
+
+    let index = nodeIds.indexOf(randomNodeId);
+    nodeIds.splice(index, 1);
+  }
+
+  function changeOptions() {
+    shadowState = !shadowState;
+    network.setOptions({ nodes: { shadow: shadowState }, edges: { shadow: shadowState } });
+  }
+
+
+
+  function resetAllNodesStabilize() {
+    resetAllNodes();
+    network.stabilize();
+  }
+
+  function setTheData() {
+    nodes = new vis.DataSet(nodesArray);
+    edges = new vis.DataSet(edgesArray);
+    network.setData({ nodes: nodes, edges: edges })
+  }
+
+  function resetAll() {
+    if (network !== null) {
+      network.destroy();
+      network = null;
+    }
+    startNetwork();
+  }
+</script>
+
+
+</body>
+
+</html>
